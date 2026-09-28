@@ -1,0 +1,88 @@
+<resources>
+    <string name="app_name">Quman</string>
+
+    <!-- Onboarding Flow (Phase 2 Real Permissions) -->
+    <string name="onboarding_header">Hal tallaabo oo kale</string>
+    <string name="onboarding_subtitle">Si Quman kuugu sheego marka lacag timaado — xitaa marka appku xiran yahay.</string>
+
+    <string name="permission_sms_title">Fariimaha SMS-ka</string>
+    <string name="permission_sms_subtitle">Si Quman u akhriyo fariimaha lacagta — kuwaas oo keliya.</string>
+    <string name="permission_sms_restricted_link">Ma aragtid ogolaanshaha? Taabo halkan</string>
+    <string name="permission_sms_denied_warning">Quman ma ogaan karo lacagaha kuu soo dhaca haddii aan fariimaha loo oggolaan.</string>
+
+    <string name="permission_notifications_title">Ogeysiisyada</string>
+    <string name="permission_notifications_subtitle">Cod marka lacag timaado.</string>
+
+    <string name="permission_battery_title">Awoodda Batteriga</string>
+    <string name="permission_battery_subtitle">Si Quman u shaqeeyo marka la xiro.</string>
+
+    <string name="permission_overlay_title">Shaashad Dul-sabbeysa</string>
+    <string name="permission_overlay_subtitle">Shaashad kuu soo baxeeso marka SMS timaado.</string>
+    <string name="permission_overlay_denied_warning">Shaashaddan waxay kuu sahlaysaa inaad si degdeg ah u aragto xisaabta markasta oo lacag timaado.</string>
+
+    <string name="btn_permission_grant">Ogolow</string>
+    <string name="status_permission_granted">Diyaar ✓</string>
+    <string name="btn_retry">Dib u isku day</string>
+    <string name="btn_skip_for_now">Ka bood hadda</string>
+    <string name="btn_grant_step">Ogolow (%1$d/%2$d)</string>
+    <string name="btn_continue">Sii wad</string>
+
+    <!-- Auth Common -->
+    <string name="auth_tagline">Maamulaha Qarashkaaga Mobilka</string>
+    <string name="tab_login">Gal akoonka</string>
+    <string name="tab_signup">Sameyso akoon</string>
+    <string name="label_full_name">Magacaaga oo buuxa</string>
+    <string name="hint_full_name">Tus. Axmed Cali Maxamed</string>
+    <string name="label_phone">Lambarka Taleefanka</string>
+    <string name="hint_phone">61xxxxxxx ama 25261xxxxxxx</string>
+    <string name="label_password">Erayga sirta ah</string>
+    <string name="hint_password">Ugu yaraan 6 xaraf</string>
+    <string name="password_warning_note">Password-ka ha illoobin, lama soo celin karo.</string>
+    <string name="btn_login">Gal akoonka</string>
+    <string name="btn_signup">Abuur Akoonkaaga</string>
+    <string name="loading_auth">Fadlan sug…</string>
+    <string name="show_password">Muuji erayga sirta</string>
+    <string name="hide_password">Qari erayga sirta</string>
+
+    <!-- Somali Auth Validation and Errors -->
+    <string name="error_empty_name">Fadlan magacaaga oo buuxa geli.</string>
+    <string name="error_invalid_phone">Fadlan geli lambar sax ah oo Soomaali ah (9 lambar sida 61xxxxxxx ama 12 lambar sida 25261xxxxxxx).</string>
+    <string name="error_password_too_short">Erayga sirta ah waa inuu ugu yaraan ka koobnaadaa 6 xaraf.</string>
+    <string name="error_user_already_registered">Lambarkan horay ayaa loo diiwaangeliyay. Fadlan gal akoonkaaga.</string>
+    <string name="error_invalid_credentials">Lambarka ama erayga sirta ah waa khalad. Fadlan hubi.</string>
+    <string name="error_no_internet">Ma jiro qadka intarneetka. Fadlan hubi xiriirkaaga.</string>
+    <string name="error_generic">Khalad ayaa dhacay. Fadlan dib iskugu day.</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_home">Guriga</string>
+    <string name="nav_reports">Warbixin</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Home Screen -->
+    <string name="home_welcome">Soo dhowow,</string>
+    <string name="home_balance_title">Haraaga Guud</string>
+    <string name="home_money_in">Lacag Soo Gashay</string>
+    <string name="home_money_out">Lacag Baxday</string>
+    <string name="home_recent_transactions">Dhaqdhaqaaqii ugu dambeeyay</string>
+    <string name="home_no_transactions">Weli wax dhaqdhaqaaq ah ma jiraan.</string>
+    <string name="home_placeholder_card">Qaybtan waa bilowga Quman. Waa lagu dari doonaa xisaabaadka SMS-yada si toos ah.</string>
+
+    <!-- Reports Screen -->
+    <string name="reports_title">Warbixinta Kharashka</string>
+    <string name="reports_subtitle">Falanqaynta lacagahaaga bishan</string>
+    <string name="reports_placeholder">Shaxanka iyo warbixinta buuxda waxay soo bixi doontaa marka xisaabaadku bilowdaan.</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Habaynta Akoonka</string>
+    <string name="settings_account_info">Macluumaadka Akoonka</string>
+    <string name="settings_sim_cards">Kaadhadhka SIM-ka</string>
+    <string name="settings_categories">Qaybaha Kharashka</string>
+    <string name="settings_security">Amniga &amp; Xogta</string>
+    <string name="settings_about_app">Ku saabsan Quman</string>
+    <string name="settings_version">Nooca: 1.0.0</string>
+    <string name="btn_logout">Ka bax akoonka</string>
+    <string name="logout_confirmation_title">Ma hubtaa inaad ka baxayso?</string>
+    <string name="logout_confirmation_desc">Waa inaad markale gelisaa lambarkaaga iyo erayga sirta ah.</string>
+    <string name="btn_cancel">Jooji</string>
+    <string name="btn_confirm_logout">Haa, ka bax</string>
+</resources>

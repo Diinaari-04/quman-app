@@ -1,0 +1,6 @@
+{
+  "name": "Quman",
+  "description": "Diiwaanka qarashkaaga - Mobile-money expense tracker for Somali users",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
