@@ -40,6 +40,7 @@ class QumanApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        com.quman.app.util.NotificationHelper.createNotificationChannels(this)
     }
 
     companion object {

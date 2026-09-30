@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SimCard
@@ -210,6 +211,234 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_about_app),
                         subtitle = stringResource(R.string.settings_version)
                     )
+                }
+            }
+
+            // Notifications & Sound Status Card
+            val context = androidx.compose.ui.platform.LocalContext.current
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(2.dp, RoundedCornerShape(20.dp))
+                    .testTag("notification_settings_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEFF6FF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = QumanDeepBlue,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Ogeysiisyada & Dhawaqa",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Midabada xaaladda & codka dheer ee lacagta",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Status color legend
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Green: Received
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(com.quman.app.ui.theme.MoneyInGreenContainer)
+                                .padding(8.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = "🟢 Cagaar",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = com.quman.app.ui.theme.MoneyInGreen
+                                )
+                                Text(
+                                    text = "Lacag la helay",
+                                    fontSize = 10.sp,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
+
+                        // Red: Sent
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(com.quman.app.ui.theme.MoneyOutRedContainer)
+                                .padding(8.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = "🔴 Gaduud",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MoneyOutRed
+                                )
+                                Text(
+                                    text = "Lacag la diray",
+                                    fontSize = 10.sp,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
+
+                        // Yellow: Other
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(com.quman.app.ui.theme.PromoAmberContainer)
+                                .padding(8.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = "🟡 Jaalle",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = com.quman.app.ui.theme.PromoAmber
+                                )
+                                Text(
+                                    text = "Ogeysiis kale",
+                                    fontSize = 10.sp,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Fiiro gaar ah: SMS-ka lama akhrinayo si toos ah, mana furayo shaashadda iyada oo aan la taaban. SMS lacag ah marka ay timaado waxaa u dhacaya cod dheer oo gaar ah.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Tijaabi Ogeysiisyada:",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Test Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                val item = com.quman.app.util.SmsTransactionParser.parse(
+                                    sender = "EVCPlus",
+                                    body = "[-EVCPlus-] Waxaad $25.00 ka heshay 252615999888, Haraagaagu waa $145.45. Taariikh: 30/09/2026"
+                                )
+                                com.quman.app.util.NotificationHelper.showNotification(context, item)
+                                com.quman.app.util.InAppNotificationManager.show(item)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("test_received_btn"),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, com.quman.app.ui.theme.MoneyInGreen),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp, horizontal = 4.dp)
+                        ) {
+                            Text(
+                                text = "🟢 Helay",
+                                color = com.quman.app.ui.theme.MoneyInGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                val item = com.quman.app.util.SmsTransactionParser.parse(
+                                    sender = "EVCPlus",
+                                    body = "[-EVCPlus-] $10.00 ayaad u wareejisay 252615123456, Haraagaagu waa $135.45. Taariikh: 30/09/2026"
+                                )
+                                com.quman.app.util.NotificationHelper.showNotification(context, item)
+                                com.quman.app.util.InAppNotificationManager.show(item)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("test_sent_btn"),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MoneyOutRed),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp, horizontal = 4.dp)
+                        ) {
+                            Text(
+                                text = "🔴 Diray",
+                                color = MoneyOutRed,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = {
+                                val item = com.quman.app.util.SmsTransactionParser.parse(
+                                    sender = "Quman",
+                                    body = "Quman: Nidaamka akoonkaaga wuxuu u shaqeynayaa si sugan."
+                                )
+                                com.quman.app.util.NotificationHelper.showNotification(context, item)
+                                com.quman.app.util.InAppNotificationManager.show(item)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("test_other_btn"),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, com.quman.app.ui.theme.PromoAmber),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp, horizontal = 4.dp)
+                        ) {
+                            Text(
+                                text = "🟡 Kale",
+                                color = com.quman.app.ui.theme.PromoAmber,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
 
