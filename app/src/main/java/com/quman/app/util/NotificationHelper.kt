@@ -136,7 +136,7 @@ object NotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setDefaults(if (channelId == CHANNEL_ID_MONEY) 0 else NotificationCompat.DEFAULT_SOUND)
+            .setDefaults(if (channelId == CHANNEL_ID_OUT || channelId == CHANNEL_ID_IN) 0 else NotificationCompat.DEFAULT_SOUND)
 
         try {
             val notificationManager = NotificationManagerCompat.from(context)
