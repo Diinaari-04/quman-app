@@ -19,9 +19,11 @@ if (localPropertiesFile.exists()) {
   }
 }
 val supabaseUrlProp = (localProperties.getProperty("SUPABASE_URL")
+  ?: localProperties.getProperty("supabase.url")
   ?: System.getenv("SUPABASE_URL")
   ?: "https://placeholder.supabase.co").trim().replace("\"", "")
 val supabaseAnonKeyProp = (localProperties.getProperty("SUPABASE_ANON_KEY")
+  ?: localProperties.getProperty("supabase.anonKey")
   ?: System.getenv("SUPABASE_ANON_KEY")
   ?: "placeholder-anon-key").trim().replace("\"", "")
 

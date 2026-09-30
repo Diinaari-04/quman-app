@@ -238,8 +238,13 @@ fun AuthScreen(
                                 ),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary,
+                                    cursorColor = QumanDeepBlue,
                                     focusedBorderColor = QumanViolet,
-                                    unfocusedBorderColor = Color(0xFFE2E8F0)
+                                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                                    focusedPlaceholderColor = TextMuted,
+                                    unfocusedPlaceholderColor = TextMuted
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -283,8 +288,13 @@ fun AuthScreen(
                         ),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            cursorColor = QumanDeepBlue,
                             focusedBorderColor = QumanViolet,
-                            unfocusedBorderColor = Color(0xFFE2E8F0)
+                            unfocusedBorderColor = Color(0xFFE2E8F0),
+                            focusedPlaceholderColor = TextMuted,
+                            unfocusedPlaceholderColor = TextMuted
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -343,8 +353,13 @@ fun AuthScreen(
                         ),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            cursorColor = QumanDeepBlue,
                             focusedBorderColor = QumanViolet,
-                            unfocusedBorderColor = Color(0xFFE2E8F0)
+                            unfocusedBorderColor = Color(0xFFE2E8F0),
+                            focusedPlaceholderColor = TextMuted,
+                            unfocusedPlaceholderColor = TextMuted
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
