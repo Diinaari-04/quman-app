@@ -16,8 +16,9 @@ import com.quman.app.MainActivity
 import com.quman.app.R
 
 object NotificationHelper {
-    const val CHANNEL_ID_MONEY = "quman_money_transactions_channel_v2"
-    const val CHANNEL_ID_GENERAL = "quman_general_channel_v2"
+    const val CHANNEL_ID_OUT = "tx_out_v2"
+    const val CHANNEL_ID_IN = "tx_in_v2"
+    const val CHANNEL_ID_OTHER = "tx_other_v2"
 
     private const val NOTIFICATION_ID_BASE = 8000
 
@@ -26,41 +27,61 @@ object NotificationHelper {
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
-            // 1. High-importance Money Channel with custom loud sound
-            val moneySoundUri = Uri.parse(
-                "${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/${R.raw.money_alert}"
-            )
             val audioAttributes = AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
                 .build()
 
-            val moneyChannel = NotificationChannel(
-                CHANNEL_ID_MONEY,
-                "Quman Lacagaha (Money Transactions)",
+            // 1. Channel A: Money OUT (sent)
+            val moneyOutUri = Uri.parse(
+                "${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/${R.raw.money_out}"
+            )
+            val outChannel = NotificationChannel(
+                CHANNEL_ID_OUT,
+                "Quman Lacagta Baxday (Money Out)",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Ogeysiisyada lacagaha la helo ama la diro"
+                description = "Ogeysiisyada lacagaha la diro (Money Out)"
+                enableLights(true)
+                lightColor = AndroidColor.RED
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 100, 250)
+                setSound(moneyOutUri, audioAttributes)
+                setBypassDnd(false) // Respect Do Not Disturb by default
+            }
+
+            // 2. Channel B: Money IN (received)
+            val moneyInUri = Uri.parse(
+                "${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/${R.raw.money_in}"
+            )
+            val inChannel = NotificationChannel(
+                CHANNEL_ID_IN,
+                "Quman Lacagta Timid (Money In)",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Ogeysiisyada lacagaha la helo (Money In)"
                 enableLights(true)
                 lightColor = AndroidColor.GREEN
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 300, 150, 300)
-                setSound(moneySoundUri, audioAttributes)
+                setSound(moneyInUri, audioAttributes)
+                setBypassDnd(false) // Respect Do Not Disturb by default
             }
 
-            // 2. Default General Channel
-            val generalChannel = NotificationChannel(
-                CHANNEL_ID_GENERAL,
-                "Quman Ogeysiisyada Guud (General Notifications)",
+            // 3. Channel C: General & Other Notifications (Ad/Info)
+            val otherChannel = NotificationChannel(
+                CHANNEL_ID_OTHER,
+                "Quman Ogeysiisyada Guud & Xayeysiinta",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Ogeysiisyada kale ee guud"
+                description = "Ogeysiisyada guud iyo xayeysiisyada"
                 enableLights(true)
                 lightColor = AndroidColor.YELLOW
             }
 
-            notificationManager.createNotificationChannel(moneyChannel)
-            notificationManager.createNotificationChannel(generalChannel)
+            notificationManager.createNotificationChannel(outChannel)
+            notificationManager.createNotificationChannel(inChannel)
+            notificationManager.createNotificationChannel(otherChannel)
         }
     }
 
@@ -76,19 +97,19 @@ object NotificationHelper {
 
         when (notification.type) {
             NotificationType.MONEY_RECEIVED -> {
-                channelId = CHANNEL_ID_MONEY
+                channelId = CHANNEL_ID_IN
                 colorInt = AndroidColor.rgb(22, 163, 74) // Green: #16A34A
-                // Also play loud distinctive sound directly
-                MoneySoundPlayer.playMoneyAlertSound(context)
+                // Play pleasant chime
+                MoneySoundPlayer.playMoneyInSound(context)
             }
             NotificationType.MONEY_SENT -> {
-                channelId = CHANNEL_ID_MONEY
+                channelId = CHANNEL_ID_OUT
                 colorInt = AndroidColor.rgb(220, 38, 38) // Red: #DC2626
-                // Also play loud distinctive sound directly
-                MoneySoundPlayer.playMoneyAlertSound(context)
+                // Play slightly urgent alert tone
+                MoneySoundPlayer.playMoneyOutSound(context)
             }
             NotificationType.OTHER -> {
-                channelId = CHANNEL_ID_GENERAL
+                channelId = CHANNEL_ID_OTHER
                 colorInt = AndroidColor.rgb(245, 158, 11) // Yellow: #F59E0B
             }
         }

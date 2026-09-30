@@ -1,39 +1,101 @@
 package com.quman.app.util
 
+import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import android.util.Log
+import com.quman.app.QumanApplication
 import com.quman.app.R
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.runBlocking
 
 object MoneySoundPlayer {
     private const val TAG = "MoneySoundPlayer"
     private var mediaPlayer: MediaPlayer? = null
 
     /**
-     * Plays the distinctive, loud money alert sound (R.raw.money_alert) for
-     * incoming (Green) or outgoing (Red) money transactions.
+     * Plays the pleasant, positive chime for Money IN (incoming/received transactions).
      */
-    fun playMoneyAlertSound(context: Context) {
+    fun playMoneyInSound(context: Context) {
+        playSoundResource(context, R.raw.money_in)
+    }
+
+    /**
+     * Plays the short, slightly urgent alert tone for Money OUT (outgoing/sent transactions).
+     */
+    fun playMoneyOutSound(context: Context) {
+        playSoundResource(context, R.raw.money_out)
+    }
+
+    private fun playSoundResource(context: Context, resId: Int) {
         try {
-            // Stop any currently running instance
             stop()
+
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+
+            // Check user preference for bypassing silent mode
+            val app = context.applicationContext as? QumanApplication
+            val bypassSilentMode = try {
+                runBlocking {
+                    app?.userPreferences?.isBypassSilentMode?.firstOrNull() ?: false
+                }
+            } catch (e: Exception) {
+                false
+            }
+
+            // Check Do Not Disturb (DND) state
+            val isDndActive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && notificationManager != null) {
+                val filter = notificationManager.currentInterruptionFilter
+                filter != NotificationManager.INTERRUPTION_FILTER_ALL && filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+            } else {
+                false
+            }
+
+            // If DND is actively engaged, respect it by default and do not play sound
+            if (isDndActive) {
+                Log.d(TAG, "DND active: respecting DND, not playing sound")
+                return
+            }
+
+            // If bypass silent mode is disabled, respect normal ringer modes (vibrate / silent)
+            if (!bypassSilentMode && audioManager != null) {
+                if (audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT ||
+                    audioManager.ringerMode == AudioManager.RINGER_MODE_VIBRATE
+                ) {
+                    Log.d(TAG, "Device in silent/vibrate mode and bypass is disabled: silent")
+                    return
+                }
+            }
+
+            val usage = if (bypassSilentMode) {
+                // USAGE_ALARM allows the sound to play through the alarm stream even if ringer is vibrate/silent
+                AudioAttributes.USAGE_ALARM
+            } else {
+                AudioAttributes.USAGE_NOTIFICATION_EVENT
+            }
+
+            val contentType = if (bypassSilentMode) {
+                AudioAttributes.CONTENT_TYPE_SONIFICATION
+            } else {
+                AudioAttributes.CONTENT_TYPE_SONIFICATION
+            }
 
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
-                        .setLegacyStreamType(AudioManager.STREAM_NOTIFICATION)
+                        .setContentType(contentType)
+                        .setUsage(usage)
                         .build()
                 )
 
-                val afd = context.resources.openRawResourceFd(R.raw.money_alert)
+                val afd = context.resources.openRawResourceFd(resId)
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                 afd.close()
 
-                // Set full volume for distinctive, loud alerts
                 setVolume(1.0f, 1.0f)
 
                 setOnCompletionListener { mp ->
@@ -64,7 +126,7 @@ object MoneySoundPlayer {
                 start()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to play money alert sound", e)
+            Log.e(TAG, "Failed to play sound resource $resId", e)
         }
     }
 

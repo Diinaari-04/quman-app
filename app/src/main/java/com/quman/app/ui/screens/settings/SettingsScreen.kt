@@ -57,6 +57,8 @@ import com.quman.app.ui.theme.TextMuted
 import com.quman.app.ui.theme.TextPrimary
 import com.quman.app.ui.theme.TextSecondary
 import com.quman.app.util.PhoneUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -349,6 +351,51 @@ fun SettingsScreen(
                             lineHeight = 16.sp
                         )
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Bypass silent mode toggle switch
+                    val app = context.applicationContext as? com.quman.app.QumanApplication
+                    val isBypassSilent by (app?.userPreferences?.isBypassSilentMode ?: kotlinx.coroutines.flow.flowOf(false))
+                        .collectAsStateWithLifecycle(false)
+                    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Bypass silent mode for Quman",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "U daaran codka lacagta xitaa haddii taleefanku aamusan yahay. Quman ma dhaafayo Do Not Disturb (DND) si xasiloonidaada loo ilaaliyo.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = TextMuted,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        androidx.compose.material3.Switch(
+                            checked = isBypassSilent,
+                            onCheckedChange = { enabled ->
+                                coroutineScope.launch {
+                                    app?.userPreferences?.setBypassSilentMode(enabled)
+                                }
+                            },
+                            modifier = Modifier.testTag("bypass_silent_switch")
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
 

@@ -21,6 +21,7 @@ data class ParsedSmsNotification(
     val message: String,
     val rawBody: String,
     val sender: String,
+    val isAd: Boolean = false,
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -29,6 +30,14 @@ object SmsTransactionParser {
     private val amountRegex = Regex("""(?:\$|USD\s*)\s*([0-9]+(?:\.[0-9]{1,2})?)|([0-9]+(?:\.[0-9]{1,2})?)\s*(?:\$|USD)""", RegexOption.IGNORE_CASE)
     private val balanceRegex = Regex("""(?:haraaga(?:agu|aga)?|balance)(?:\s+cusub)?\s*(?:waa|is)?\s*\$?([0-9]+(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
     private val phoneRegex = Regex("""\b(252[0-9]{9}|[0-9]{9})\b""")
+
+    private val adKeywords = listOf(
+        "la soo deg", "kala soo deg", "download", "app-ka", "waafi", "ku guuleyso",
+        "fursad", "hadiyad", "ku shubo", "dalbo", "offer", "discount", "free",
+        "xirmo", "bundle", "ogaysiis", "xayeysiin", "promotional", "campaign",
+        "macmiil ku guuleyso", "kordhi fursadaada", "qiimo dhimis", "tartanka",
+        "fadlan la xiriir", "adeeg cusub"
+    )
 
     fun parse(sender: String, body: String, timestamp: Long = System.currentTimeMillis()): ParsedSmsNotification {
         val lower = body.lowercase()
@@ -82,11 +91,21 @@ object SmsTransactionParser {
                 lower.contains("transfer to") ||
                 lower.contains("debited")
 
+        // 6. Check if promotional or non-transaction telecom SMS (192, 898, etc.)
+        val hasAdKeyword = adKeywords.any { lower.contains(it) }
+        val isTelecomSender = sender.contains("192") || sender.contains("898") ||
+                sender.equals("hormuud", ignoreCase = true) ||
+                sender.equals("telesom", ignoreCase = true) ||
+                sender.equals("somtel", ignoreCase = true) ||
+                sender.equals("golis", ignoreCase = true)
+
+        val isAd = hasAdKeyword || (isTelecomSender && (!isIncoming && !isOutgoing))
+
         val type: NotificationType
         val title: String
         val message: String
 
-        if (isIncoming && amount != null) {
+        if (!isAd && isIncoming && amount != null) {
             type = NotificationType.MONEY_RECEIVED
             val formattedAmount = String.format("%.2f", amount)
             title = "Lacag La Helay (Received)"
@@ -95,7 +114,7 @@ object SmsTransactionParser {
             } else {
                 "Waxaad heshay $$formattedAmount ($provider)"
             }
-        } else if (isOutgoing && amount != null) {
+        } else if (!isAd && isOutgoing && amount != null) {
             type = NotificationType.MONEY_SENT
             val formattedAmount = String.format("%.2f", amount)
             title = "Lacag La Diray (Sent)"
@@ -106,14 +125,14 @@ object SmsTransactionParser {
             }
         } else {
             type = NotificationType.OTHER
-            title = "Ogeysiis (Notification)"
+            title = if (isAd) "Xayeysiin ($provider)" else "Ogeysiis (Notification)"
             message = if (body.length > 90) body.take(87) + "..." else body
         }
 
         return ParsedSmsNotification(
             type = type,
             provider = provider,
-            amount = amount,
+            amount = if (isAd) null else amount,
             counterparty = counterpartyPhone,
             counterpartyPhone = counterpartyPhone,
             balanceAfter = balanceAfter,
@@ -121,6 +140,7 @@ object SmsTransactionParser {
             message = message,
             rawBody = body,
             sender = sender,
+            isAd = isAd,
             timestamp = timestamp
         )
     }

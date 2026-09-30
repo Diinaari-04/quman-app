@@ -22,6 +22,21 @@ class UserPreferencesRepository(private val context: Context) {
         val CACHED_USER_ID = stringPreferencesKey("cached_user_id")
         val CACHED_FULL_NAME = stringPreferencesKey("cached_full_name")
         val CACHED_PHONE = stringPreferencesKey("cached_phone")
+        val BYPASS_SILENT_MODE = booleanPreferencesKey("bypass_silent_mode")
+    }
+
+    val isBypassSilentMode: Flow<Boolean> = context.qumanDataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.BYPASS_SILENT_MODE] ?: false
+        }
+
+    suspend fun setBypassSilentMode(enabled: Boolean) {
+        context.qumanDataStore.edit { preferences ->
+            preferences[PreferencesKeys.BYPASS_SILENT_MODE] = enabled
+        }
     }
 
     val isOnboardingCompleted: Flow<Boolean> = context.qumanDataStore.data

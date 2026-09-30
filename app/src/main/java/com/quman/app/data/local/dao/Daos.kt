@@ -57,6 +57,9 @@ interface CategoryDao {
 
 @Dao
 interface TransactionDao {
+    @Query("SELECT * FROM transactions ORDER BY occurred_at DESC")
+    fun getAllTransactions(): Flow<List<TransactionEntity>>
+
     @Query("SELECT * FROM transactions WHERE user_id = :userId ORDER BY occurred_at DESC")
     fun getTransactions(userId: String): Flow<List<TransactionEntity>>
 
@@ -73,5 +76,17 @@ interface TransactionDao {
     suspend fun getUnsynced(): List<TransactionEntity>
 
     @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface AdMessageDao {
+    @Query("SELECT * FROM ad_messages ORDER BY occurred_at DESC")
+    fun getAllAds(): Flow<List<com.quman.app.data.local.entities.AdMessageEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(ad: com.quman.app.data.local.entities.AdMessageEntity)
+
+    @Query("DELETE FROM ad_messages WHERE id = :id")
     suspend fun deleteById(id: String)
 }

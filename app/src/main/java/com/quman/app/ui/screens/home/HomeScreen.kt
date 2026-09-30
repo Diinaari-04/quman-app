@@ -1,6 +1,16 @@
 package com.quman.app.ui.screens.home
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,35 +30,57 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.SimCard
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.quman.app.QumanApplication
 import com.quman.app.R
+import com.quman.app.data.local.entities.TransactionEntity
 import com.quman.app.ui.theme.HeaderGradient
 import com.quman.app.ui.theme.MoneyInGreen
 import com.quman.app.ui.theme.MoneyInGreenContainer
 import com.quman.app.ui.theme.MoneyOutRed
 import com.quman.app.ui.theme.MoneyOutRedContainer
+import com.quman.app.ui.theme.PromoAmber
+import com.quman.app.ui.theme.PromoAmberContainer
 import com.quman.app.ui.theme.QumanDeepBlue
 import com.quman.app.ui.theme.TextMuted
 import com.quman.app.ui.theme.TextPrimary
 import com.quman.app.ui.theme.TextSecondary
 import com.quman.app.util.CurrencyUtils
 import com.quman.app.util.PhoneUtils
+import kotlinx.coroutines.flow.flowOf
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -56,8 +88,51 @@ fun HomeScreen(
     userPhone: String?,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val app = context.applicationContext as? QumanApplication
+
+    // Reactive database transactions and ads
+    val transactions by (app?.database?.transactionDao()?.getAllTransactions() ?: flowOf(emptyList()))
+        .collectAsStateWithLifecycle(emptyList())
+
+    val ads by (app?.database?.adMessageDao()?.getAllAds() ?: flowOf(emptyList()))
+        .collectAsStateWithLifecycle(emptyList())
+
+    // Runtime SMS Permission check
+    var hasSmsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        hasSmsPermission = (results[Manifest.permission.RECEIVE_SMS] == true) &&
+                (results[Manifest.permission.READ_SMS] == true)
+    }
+
+    LaunchedEffect(Unit) {
+        hasSmsPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    // Dynamic Balance Calculations
+    val totalIn = remember(transactions) {
+        transactions.filter { it.direction == "in" }.sumOf { it.amount }
+    }
+    val totalOut = remember(transactions) {
+        transactions.filter { it.direction == "out" }.sumOf { it.amount }
+    }
+    val netBalance = remember(totalIn, totalOut) {
+        totalIn - totalOut
+    }
+
     val displayName = if (!userName.isNullOrBlank()) userName else "Saaxiib"
     val displayPhone = if (!userPhone.isNullOrBlank()) PhoneUtils.formatDisplay(userPhone) else ""
+
+    var isAdsExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -113,7 +188,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Balance Card inside Header
+                // Balance Card inside Header (Reactively calculates real net balance)
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -133,7 +208,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "$0.00",
+                            text = "$${String.format(Locale.US, "%.2f", netBalance)}",
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 color = QumanDeepBlue,
                                 fontWeight = FontWeight.ExtraBold
@@ -182,7 +257,7 @@ fun HomeScreen(
                                             fontWeight = FontWeight.Medium
                                         )
                                         Text(
-                                            text = CurrencyUtils.formatAmount(0.0, "in"),
+                                            text = CurrencyUtils.formatAmount(totalIn, "in"),
                                             fontSize = 13.sp,
                                             color = MoneyInGreen,
                                             fontWeight = FontWeight.Bold
@@ -226,7 +301,7 @@ fun HomeScreen(
                                             fontWeight = FontWeight.Medium
                                         )
                                         Text(
-                                            text = CurrencyUtils.formatAmount(0.0, "out"),
+                                            text = CurrencyUtils.formatAmount(totalOut, "out"),
                                             fontSize = 13.sp,
                                             color = MoneyOutRed,
                                             fontWeight = FontWeight.Bold
@@ -246,6 +321,67 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
+            // Permission Missing Alert Banner (if SMS permissions are not granted at runtime)
+            if (!hasSmsPermission) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 18.dp)
+                        .clickable {
+                            permissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.RECEIVE_SMS,
+                                    Manifest.permission.READ_SMS
+                                )
+                            )
+                        }
+                        .testTag("sms_permission_warning_banner"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFEE2E2)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MoneyOutRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "SMS permission ma ogolayn — Taabo si aad u ogolaato",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF991B1B)
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Quman ma ogaan karo lacagaha kuu soo dhaca ama baxa haddii aan fariimaha loo oggolaan.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFFB91C1C),
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
             // Mobile Money Providers summary badge
             Text(
                 text = "Adeegyada Mobilka",
@@ -293,62 +429,235 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Recent Transactions Section Header
-            Text(
-                text = stringResource(R.string.home_recent_transactions),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.home_recent_transactions),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                if (transactions.isNotEmpty()) {
+                    Text(
+                        text = "${transactions.size} dhaqdhaqaaq",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Placeholder Card (20dp rounded corners)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(2.dp, RoundedCornerShape(20.dp))
-                    .testTag("recent_transactions_placeholder"),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(
+            // Transactions List or Empty Placeholder
+            if (transactions.isEmpty()) {
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(28.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .shadow(2.dp, RoundedCornerShape(20.dp))
+                        .testTag("recent_transactions_placeholder"),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
-                    Box(
+                    Column(
                         modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFEFF6FF)),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
-                            contentDescription = null,
-                            tint = QumanDeepBlue,
-                            modifier = Modifier.size(28.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEFF6FF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                contentDescription = null,
+                                tint = QumanDeepBlue,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = stringResource(R.string.home_no_transactions),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = stringResource(R.string.home_placeholder_card),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
+                }
+            } else {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(20.dp))
+                        .testTag("recent_transactions_card"),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        transactions.take(15).forEachIndexed { index, tx ->
+                            TransactionRowItem(tx = tx)
+                            if (index < transactions.take(15).size - 1) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = Color(0xFFF1F5F9),
+                                    thickness = 1.dp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+            // Collapsible "Xayeysiin" (Promotions & Telecom Announcements) Section
+            if (ads.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(20.dp))
 
-                    Text(
-                        text = stringResource(R.string.home_no_transactions),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(16.dp))
+                        .border(1.dp, PromoAmber.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                        .testTag("ads_collapsible_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isAdsExpanded = !isAdsExpanded },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(PromoAmberContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Campaign,
+                                        contentDescription = null,
+                                        tint = PromoAmber,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Xayeysiin & Fariimo kale",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = TextPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(PromoAmberContainer)
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "${ads.size}",
+                                                color = PromoAmber,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = "Fariimaha aan xisaabta ahayn ee shirkadaha",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                            Icon(
+                                imageVector = if (isAdsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (isAdsExpanded) "Qari" else "Fur",
+                                tint = TextSecondary
+                            )
+                        }
 
-                    Text(
-                        text = stringResource(R.string.home_placeholder_card),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextMuted,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                        AnimatedVisibility(visible = isAdsExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp)
+                            ) {
+                                ads.forEachIndexed { i, ad ->
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "${ad.provider} (${ad.sender})",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = PromoAmber
+                                                )
+                                            )
+                                            Text(
+                                                text = formatDateTime(ad.occurredAt),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    color = TextMuted,
+                                                    fontSize = 10.sp
+                                                )
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Text(
+                                            text = ad.body,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = TextPrimary,
+                                                lineHeight = 16.sp
+                                            )
+                                        )
+                                    }
+                                    if (i < ads.size - 1) {
+                                        HorizontalDivider(
+                                            color = Color(0xFFF1F5F9),
+                                            thickness = 1.dp,
+                                            modifier = Modifier.padding(vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -356,3 +665,92 @@ fun HomeScreen(
         }
     }
 }
+
+@Composable
+private fun TransactionRowItem(tx: TransactionEntity) {
+    val isOut = tx.direction == "out"
+    val accentColor = if (isOut) MoneyOutRed else MoneyInGreen
+    val containerColor = if (isOut) MoneyOutRedContainer else MoneyInGreenContainer
+    val icon = if (isOut) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Colored circle icon matching balance tokens
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(containerColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = if (isOut) "Money Out" else "Money In",
+                tint = accentColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Middle details
+        Column(modifier = Modifier.weight(1f)) {
+            val titleText = tx.counterpartyPhone
+                ?: tx.counterpartyName
+                ?: tx.note
+                ?: tx.provider
+
+            Text(
+                text = titleText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                ),
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "${tx.provider} • ${formatDateTime(tx.occurredAt)}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Right side: Amount + optional balance
+        Column(horizontalAlignment = Alignment.End) {
+            val sign = if (isOut) "-" else "+"
+            Text(
+                text = "$sign$${String.format(Locale.US, "%.2f", tx.amount)}",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor,
+                    fontSize = 14.sp
+                )
+            )
+            if (tx.balanceAfter != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Haraa: $${String.format(Locale.US, "%.2f", tx.balanceAfter)}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = TextMuted,
+                        fontSize = 10.sp
+                    )
+                )
+            }
+        }
+    }
+}
+
+private fun formatDateTime(timestamp: Long): String {
+    val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
+    return sdf.format(Date(timestamp))
+}
+
