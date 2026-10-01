@@ -60,6 +60,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY occurred_at DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE occurred_at >= :startTime AND occurred_at <= :endTime ORDER BY occurred_at DESC")
+    fun getTransactionsBetween(startTime: Long, endTime: Long): Flow<List<TransactionEntity>>
+
     @Query("SELECT * FROM transactions WHERE user_id = :userId ORDER BY occurred_at DESC")
     fun getTransactions(userId: String): Flow<List<TransactionEntity>>
 

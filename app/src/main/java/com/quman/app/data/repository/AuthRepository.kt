@@ -10,6 +10,8 @@ import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.exceptions.HttpRequestException
 import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -29,12 +31,52 @@ class AuthRepository(
 ) {
     val sessionStatus: Flow<SessionStatus> = supabaseClient.auth.sessionStatus
 
-    val isLoggedIn: Flow<Boolean> = sessionStatus.map { status ->
-        status is SessionStatus.Authenticated
+    val isLoggedIn: Flow<Boolean> = combine(
+        sessionStatus,
+        userPreferences.isLoggedInLocally
+    ) { status, localLoggedIn ->
+        status is SessionStatus.Authenticated || localLoggedIn
     }
 
     fun getCurrentUser(): UserInfo? {
         return supabaseClient.auth.currentUserOrNull()
+    }
+
+    suspend fun restoreSessionIfAvailable(): Boolean {
+        val localLoggedIn = userPreferences.isLoggedInLocally.firstOrNull() ?: false
+        val refreshToken = userPreferences.savedRefreshToken.firstOrNull()
+        val cachedPhone = userPreferences.cachedPhone.firstOrNull()
+
+        if (!localLoggedIn && cachedPhone.isNullOrBlank()) {
+            return false
+        }
+
+        // If we have a refresh token, silently refresh Supabase session
+        if (!refreshToken.isNullOrBlank()) {
+            try {
+                supabaseClient.auth.refreshSession(refreshToken)
+                val session = supabaseClient.auth.currentSessionOrNull()
+                if (session != null) {
+                    val userId = session.user?.id ?: userPreferences.cachedUserId.firstOrNull() ?: ""
+                    val name = (session.user?.userMetadata?.get("full_name") as? JsonPrimitive)?.content
+                        ?: userPreferences.cachedFullName.firstOrNull() ?: ""
+                    userPreferences.saveCachedUserData(
+                        userId = userId,
+                        fullName = name,
+                        phone = cachedPhone ?: "",
+                        refreshToken = session.refreshToken,
+                        accessToken = session.accessToken
+                    )
+                    return true
+                }
+            } catch (e: Exception) {
+                // Network error, timeout, or expired token: Keep the user logged in locally
+                // Do not clear the session so the user never gets forcibly logged out
+                return localLoggedIn
+            }
+        }
+
+        return localLoggedIn
     }
 
     suspend fun signUp(fullName: String, rawPhone: String, password: String): AuthResult {
@@ -62,11 +104,14 @@ class AuthRepository(
             }
 
             val user = supabaseClient.auth.currentUserOrNull()
+            val session = supabaseClient.auth.currentSessionOrNull()
             val userId = user?.id ?: ""
             userPreferences.saveCachedUserData(
                 userId = userId,
                 fullName = trimmedName,
-                phone = normalizedPhone
+                phone = normalizedPhone,
+                refreshToken = session?.refreshToken,
+                accessToken = session?.accessToken
             )
             AuthResult.Success(user)
         } catch (e: Exception) {
@@ -91,12 +136,15 @@ class AuthRepository(
             }
 
             val user = supabaseClient.auth.currentUserOrNull()
+            val session = supabaseClient.auth.currentSessionOrNull()
             val userId = user?.id ?: ""
             val name = (user?.userMetadata?.get("full_name") as? JsonPrimitive)?.content ?: ""
             userPreferences.saveCachedUserData(
                 userId = userId,
                 fullName = name,
-                phone = normalizedPhone
+                phone = normalizedPhone,
+                refreshToken = session?.refreshToken,
+                accessToken = session?.accessToken
             )
             AuthResult.Success(user)
         } catch (e: Exception) {

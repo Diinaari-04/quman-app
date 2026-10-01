@@ -189,9 +189,9 @@ object SmsTransactionParser {
                 else -> ""
             }
             message = if (target.isNotBlank()) {
-                "Waxaad dirtay $$formattedAmount ku socota $target ($provider)"
+                "Waxaad lacag dhan $$formattedAmount u dirtay $target"
             } else {
-                "Waxaad dirtay $$formattedAmount ($provider)"
+                "Waxaad lacag dhan $$formattedAmount u dirtay ($provider)"
             }
         } else {
             type = NotificationType.OTHER

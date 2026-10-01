@@ -293,8 +293,28 @@ fun InAppNotificationPopup(
 
                             Spacer(modifier = Modifier.height(3.dp))
 
+                            val dynamicMessage = if (isMoney && item.amount != null) {
+                                val formattedAmt = String.format(Locale.US, "%.2f", item.amount)
+                                val target = when {
+                                    !item.counterpartyName.isNullOrBlank() && !item.counterpartyPhone.isNullOrBlank() ->
+                                        "${item.counterpartyName} (${item.counterpartyPhone})"
+                                    !item.counterpartyPhone.isNullOrBlank() -> item.counterpartyPhone
+                                    !item.counterpartyName.isNullOrBlank() -> item.counterpartyName
+                                    else -> ""
+                                }
+                                if (isOut) {
+                                    if (target.isNotBlank()) "Waxaad lacag dhan $$formattedAmt u dirtay $target"
+                                    else "Waxaad lacag dhan $$formattedAmt u dirtay (${item.provider})"
+                                } else {
+                                    if (target.isNotBlank()) "Waxaad heshay $$formattedAmt ka timid $target"
+                                    else "Waxaad heshay $$formattedAmt (${item.provider})"
+                                }
+                            } else {
+                                item.message
+                            }
+
                             Text(
-                                text = item.message,
+                                text = dynamicMessage,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = TextPrimary,
                                     fontSize = 13.sp,

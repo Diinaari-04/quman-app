@@ -288,10 +288,11 @@ fun OnboardingScreen(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             // Big Gradient Bottom Action Button
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 20.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
                     modifier = Modifier
@@ -331,6 +332,24 @@ fun OnboardingScreen(
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp
+                    )
+                }
+
+                // If mandatory steps are completed, show clear option to skip remaining optional steps
+                if (isSmsGranted && isNotificationGranted && !allCompleted) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = stringResource(R.string.skip_optional_steps),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = QumanDeepBlue,
+                        textDecoration = TextDecoration.Underline,
+                        modifier = Modifier
+                            .clickable {
+                                isBatterySkipped = true
+                                isOverlaySkipped = true
+                            }
+                            .testTag("skip_all_optional_button")
                     )
                 }
             }
@@ -492,22 +511,32 @@ fun OnboardingScreen(
                 title = stringResource(R.string.permission_battery_title),
                 subtitle = stringResource(R.string.permission_battery_subtitle),
                 isGranted = isBatteryGranted,
+                isSkipped = isBatterySkipped,
                 isActive = activeStep == 3,
                 onGrantClick = { requestBattery() },
-                skipContent = if (!isBatteryGranted && !isBatterySkipped) {
-                    {
-                        Text(
-                            text = stringResource(R.string.btn_skip_for_now),
-                            fontSize = 12.sp,
-                            color = TextMuted,
-                            textDecoration = TextDecoration.Underline,
-                            modifier = Modifier
-                                .padding(top = 8.dp)
-                                .clickable { isBatterySkipped = true }
-                                .testTag("skip_battery_button")
-                        )
+                skipContent = {
+                    if (!isBatteryGranted) {
+                        if (!isBatterySkipped) {
+                            Text(
+                                text = stringResource(R.string.btn_skip_for_now),
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                                textDecoration = TextDecoration.Underline,
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .clickable { isBatterySkipped = true }
+                                    .testTag("skip_battery_button")
+                            )
+                        } else {
+                            Text(
+                                text = "Waa laga booday (waxaad ka shidi kartaa Settings hadhow)",
+                                fontSize = 11.sp,
+                                color = TextMuted,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        }
                     }
-                } else null,
+                },
                 modifier = Modifier.testTag("permission_card_battery")
             )
 
@@ -519,22 +548,32 @@ fun OnboardingScreen(
                 title = stringResource(R.string.permission_overlay_title),
                 subtitle = stringResource(R.string.permission_overlay_subtitle),
                 isGranted = isOverlayGranted,
+                isSkipped = isOverlaySkipped,
                 isActive = activeStep == 4,
                 onGrantClick = { requestOverlay() },
-                skipContent = if (!isOverlayGranted && !isOverlaySkipped) {
-                    {
-                        Text(
-                            text = stringResource(R.string.btn_skip_for_now),
-                            fontSize = 12.sp,
-                            color = TextMuted,
-                            textDecoration = TextDecoration.Underline,
-                            modifier = Modifier
-                                .padding(top = 8.dp)
-                                .clickable { isOverlaySkipped = true }
-                                .testTag("skip_overlay_button")
-                        )
+                skipContent = {
+                    if (!isOverlayGranted) {
+                        if (!isOverlaySkipped) {
+                            Text(
+                                text = stringResource(R.string.btn_skip_for_now),
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                                textDecoration = TextDecoration.Underline,
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .clickable { isOverlaySkipped = true }
+                                    .testTag("skip_overlay_button")
+                            )
+                        } else {
+                            Text(
+                                text = "Waa laga booday (waxaad ka shidi kartaa Settings hadhow)",
+                                fontSize = 11.sp,
+                                color = TextMuted,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        }
                     }
-                } else null,
+                },
                 bottomContent = {
                     AnimatedVisibility(visible = !isOverlayGranted && overlayDeniedCount >= 2 && !isOverlaySkipped) {
                         Column(
@@ -593,16 +632,17 @@ private fun PermissionCard(
     isActive: Boolean,
     onGrantClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isSkipped: Boolean = false,
     skipContent: (@Composable () -> Unit)? = null,
     bottomContent: (@Composable () -> Unit)? = null
 ) {
-    val cardBorder = if (isActive && !isGranted) {
+    val cardBorder = if (isActive && !isGranted && !isSkipped) {
         BorderStroke(2.dp, QumanViolet)
     } else {
         BorderStroke(1.dp, Color(0xFFF1F5F9))
     }
 
-    val elevation = if (isActive && !isGranted) 6.dp else 2.dp
+    val elevation = if (isActive && !isGranted && !isSkipped) 6.dp else 2.dp
 
     Card(
         modifier = modifier
@@ -627,14 +667,22 @@ private fun PermissionCard(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isGranted) MoneyInGreenContainer else Color(0xFFEFF6FF)
+                            when {
+                                isGranted -> MoneyInGreenContainer
+                                isSkipped -> Color(0xFFF1F5F9)
+                                else -> Color(0xFFEFF6FF)
+                            }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isGranted) Icons.Default.Check else icon,
                         contentDescription = null,
-                        tint = if (isGranted) MoneyInGreen else QumanDeepBlue,
+                        tint = when {
+                            isGranted -> MoneyInGreen
+                            isSkipped -> TextSecondary
+                            else -> QumanDeepBlue
+                        },
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -673,6 +721,23 @@ private fun PermissionCard(
                             text = stringResource(R.string.status_permission_granted),
                             color = MoneyInGreen,
                             fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                } else if (isSkipped) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFFF1F5F9))
+                            .clickable { onGrantClick() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .testTag("status_skipped"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.status_permission_skipped),
+                            color = TextSecondary,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
                         )
                     }

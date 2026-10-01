@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -30,7 +31,21 @@ import com.quman.app.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.ArrayDeque
 import java.util.Locale
+
+private data class OverlayItem(
+    val transactionId: String,
+    val initialDirection: String,
+    val amount: Double,
+    val counterpartyName: String,
+    val counterpartyPhone: String,
+    val balanceAfter: Double,
+    val defaultTitle: String,
+    val defaultMessage: String,
+    val provider: String,
+    val startId: Int
+)
 
 class TransactionOverlayService : Service() {
 
@@ -39,6 +54,10 @@ class TransactionOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var autoDismissRunnable: Runnable? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO)
+
+    private val overlayQueue = ArrayDeque<OverlayItem>()
+    private var isShowing = false
+    private var lastStartId = -1
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -50,9 +69,11 @@ class TransactionOverlayService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startAsForeground()
 
+        lastStartId = startId
+
         if (!Settings.canDrawOverlays(this)) {
             Log.w("OverlayService", "Overlay permission not granted. Stopping service.")
-            stopSelf()
+            stopSelf(startId)
             return START_NOT_STICKY
         }
 
@@ -67,7 +88,7 @@ class TransactionOverlayService : Service() {
         val message = intent?.getStringExtra("message") ?: ""
         val provider = intent?.getStringExtra("provider") ?: "EVC Plus"
 
-        showOverlay(
+        val item = OverlayItem(
             transactionId = transactionId,
             initialDirection = direction,
             amount = amount,
@@ -76,10 +97,29 @@ class TransactionOverlayService : Service() {
             balanceAfter = balanceAfter,
             defaultTitle = title,
             defaultMessage = message,
-            provider = provider
+            provider = provider,
+            startId = startId
         )
 
+        overlayQueue.addLast(item)
+
+        if (!isShowing) {
+            showNextOverlay()
+        }
+
         return START_NOT_STICKY
+    }
+
+    private fun showNextOverlay() {
+        if (overlayQueue.isEmpty()) {
+            isShowing = false
+            stopSelf(lastStartId)
+            return
+        }
+
+        val nextItem = overlayQueue.removeFirst()
+        isShowing = true
+        showOverlay(nextItem)
     }
 
     private fun startAsForeground() {
@@ -103,24 +143,28 @@ class TransactionOverlayService : Service() {
                 .build()
 
             try {
-                startForeground(8099, notification)
+                if (Build.VERSION.SDK_INT >= 34) {
+                    startForeground(8099, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                } else {
+                    startForeground(8099, notification)
+                }
             } catch (e: Exception) {
                 Log.w("OverlayService", "startForeground failed: ${e.message}")
             }
         }
     }
 
-    private fun showOverlay(
-        transactionId: String,
-        initialDirection: String,
-        amount: Double,
-        counterpartyName: String,
-        counterpartyPhone: String,
-        balanceAfter: Double,
-        defaultTitle: String,
-        defaultMessage: String,
-        provider: String
-    ) {
+    private fun showOverlay(item: OverlayItem) {
+        val transactionId = item.transactionId
+        val initialDirection = item.initialDirection
+        val amount = item.amount
+        val counterpartyName = item.counterpartyName
+        val counterpartyPhone = item.counterpartyPhone
+        val balanceAfter = item.balanceAfter
+        val defaultTitle = item.defaultTitle
+        val defaultMessage = item.defaultMessage
+        val provider = item.provider
+
         removeOverlay()
 
         var currentDirection = initialDirection
@@ -174,9 +218,9 @@ class TransactionOverlayService : Service() {
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         val deltaY = event.rawY - startY
                         if (deltaY > dpToPx(45)) {
-                            // Swiped down: dismiss and leave uncategorized
+                            // Swiped down: dismiss and show next in queue or stop
                             removeOverlay()
-                            stopSelf()
+                            showNextOverlay()
                         } else {
                             animate().translationY(0f).setDuration(150).start()
                         }
@@ -255,9 +299,9 @@ class TransactionOverlayService : Service() {
             layoutParams = LinearLayout.LayoutParams(dpToPx(36), dpToPx(36))
             setPadding(dpToPx(6), dpToPx(6), dpToPx(6), dpToPx(6))
             setOnClickListener {
-                // Task 3: Dismisses popup and leaves transaction uncategorized in Room
+                // Task 3: Dismisses popup, leaves transaction uncategorized, shows next if queued
                 removeOverlay()
-                stopSelf()
+                showNextOverlay()
             }
         }
         topRow.addView(closeBtn)
@@ -427,7 +471,7 @@ class TransactionOverlayService : Service() {
                     counterpartyName.isNotBlank() -> counterpartyName
                     else -> ""
                 }
-                messageView.text = if (target.isNotBlank()) "Waxaad dirtay $$formattedAmt ku socota $target" else defaultMessage
+                messageView.text = if (target.isNotBlank()) "Waxaad lacag dhan $$formattedAmt u dirtay $target" else defaultMessage
             } else {
                 messageView.text = if (counterpartyPhone.isNotBlank()) "Waxaad heshay $$formattedAmt ka timid $counterpartyPhone" else defaultMessage
             }
@@ -496,15 +540,15 @@ class TransactionOverlayService : Service() {
             windowManager?.addView(rootLayout, params)
             overlayView = rootLayout
 
-            // Auto-dismiss after 8 seconds
+            // Auto-dismiss after 8 seconds and advance to next in queue
             autoDismissRunnable = Runnable {
                 removeOverlay()
-                stopSelf()
+                showNextOverlay()
             }
             handler.postDelayed(autoDismissRunnable!!, 8000L)
         } catch (e: Exception) {
             Log.e("OverlayService", "Failed to add overlay view", e)
-            stopSelf()
+            showNextOverlay()
         }
     }
 

@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quman.app.ui.components.InAppNotificationPopup
 import com.quman.app.ui.navigation.QumanNavHost
 import com.quman.app.ui.theme.QumanTheme
+import kotlinx.coroutines.flow.firstOrNull
 
 class MainActivity : ComponentActivity() {
 
@@ -31,18 +32,20 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             QumanTheme {
-                val isLoggedIn by authRepository.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
-                val isOnboardingCompleted by userPreferences.isOnboardingCompleted.collectAsStateWithLifecycle(initialValue = false)
+                val liveIsLoggedIn by authRepository.isLoggedIn.collectAsStateWithLifecycle(initialValue = false)
+                val liveIsOnboardingCompleted by userPreferences.isOnboardingCompleted.collectAsStateWithLifecycle(initialValue = false)
                 val cachedName by userPreferences.cachedFullName.collectAsStateWithLifecycle(initialValue = null)
                 val cachedPhone by userPreferences.cachedPhone.collectAsStateWithLifecycle(initialValue = null)
 
                 var sessionDetermined by remember { mutableStateOf(false) }
+                var initialLoggedIn by remember { mutableStateOf(false) }
+                var initialOnboardingDone by remember { mutableStateOf(false) }
 
-                val sessionStatus by authRepository.sessionStatus.collectAsStateWithLifecycle(
-                    initialValue = null
-                )
-
-                if (sessionStatus != null) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    val restored = authRepository.restoreSessionIfAvailable()
+                    val onboardingDone = userPreferences.isOnboardingCompleted.firstOrNull() ?: false
+                    initialLoggedIn = restored
+                    initialOnboardingDone = onboardingDone
                     sessionDetermined = true
                 }
 
@@ -52,11 +55,11 @@ class MainActivity : ComponentActivity() {
                             authRepository = authRepository,
                             simCardRepository = simCardRepository,
                             userPreferences = userPreferences,
-                            isLoggedIn = isLoggedIn,
-                            isOnboardingCompleted = isOnboardingCompleted,
+                            isLoggedIn = if (sessionDetermined) initialLoggedIn else liveIsLoggedIn,
+                            isOnboardingCompleted = if (sessionDetermined) initialOnboardingDone else liveIsOnboardingCompleted,
                             cachedName = cachedName,
                             cachedPhone = cachedPhone,
-                            isSessionDetermined = sessionDetermined || sessionStatus != null
+                            isSessionDetermined = sessionDetermined
                         )
                         InAppNotificationPopup(
                             modifier = Modifier.align(Alignment.TopCenter)
