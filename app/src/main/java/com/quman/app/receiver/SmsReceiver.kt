@@ -38,6 +38,26 @@ class SmsReceiver : BroadcastReceiver() {
 
             if (fullBody.isBlank()) return
 
+            val cleanSender = sender.trim().replace("+", "")
+            // Only parse and trigger for known money providers (192 EVC, 898 Jeeb, etc.) to prevent misfires
+            val isTargetMoneySender = cleanSender.contains("192") ||
+                    cleanSender.contains("898") ||
+                    cleanSender.contains("EVC", ignoreCase = true) ||
+                    cleanSender.contains("Jeeb", ignoreCase = true) ||
+                    cleanSender.contains("Hormuud", ignoreCase = true) ||
+                    cleanSender.contains("Somnet", ignoreCase = true) ||
+                    cleanSender.contains("ZAAD", ignoreCase = true) ||
+                    cleanSender.contains("Telesom", ignoreCase = true) ||
+                    cleanSender.contains("Sahal", ignoreCase = true) ||
+                    cleanSender.contains("Golis", ignoreCase = true) ||
+                    cleanSender.contains("eDahab", ignoreCase = true) ||
+                    cleanSender.contains("Somtel", ignoreCase = true)
+
+            if (!isTargetMoneySender) {
+                Log.d("SmsReceiver", "Ignoring SMS from non-money sender: $sender")
+                return
+            }
+
             // Parse SMS using Quman rules (Green for received, Red for sent, Yellow for other / ads)
             val parsed = SmsTransactionParser.parse(sender, fullBody, timestamp)
 
@@ -47,7 +67,13 @@ class SmsReceiver : BroadcastReceiver() {
             if (canOverlay) {
                 try {
                     val overlayIntent = Intent(context, TransactionOverlayService::class.java).apply {
+                        putExtra("transaction_id", parsed.transactionId)
                         putExtra("type", parsed.type.name)
+                        putExtra("direction", parsed.direction)
+                        putExtra("amount", parsed.amount ?: 0.0)
+                        putExtra("counterparty_name", parsed.counterpartyName ?: "")
+                        putExtra("counterparty_phone", parsed.counterpartyPhone ?: "")
+                        putExtra("balance_after", parsed.balanceAfter ?: -1.0)
                         putExtra("title", parsed.title)
                         putExtra("message", parsed.message)
                         putExtra("provider", parsed.provider)
@@ -85,24 +111,25 @@ class SmsReceiver : BroadcastReceiver() {
                             sender = sender,
                             body = fullBody,
                             provider = parsed.provider,
-                            occurredAt = timestamp
+                            occurredAt = parsed.timestamp
                         )
                         app.database.adMessageDao().insertOrUpdate(adEntity)
                     } else if (parsed.amount != null && (parsed.type == NotificationType.MONEY_SENT || parsed.type == NotificationType.MONEY_RECEIVED)) {
-                        // Insert real money transaction into transactions table
+                        // Insert real money transaction into transactions table with categoryId = null (uncategorized)
                         val transaction = TransactionEntity(
-                            id = UUID.randomUUID().toString(),
+                            id = parsed.transactionId,
                             userId = userId,
                             provider = parsed.provider,
                             sender = sender,
-                            direction = if (parsed.type == NotificationType.MONEY_RECEIVED) "in" else "out",
+                            direction = parsed.direction,
                             amount = parsed.amount,
-                            counterpartyName = parsed.counterparty,
+                            counterpartyName = parsed.counterpartyName,
                             counterpartyPhone = parsed.counterpartyPhone,
                             balanceAfter = parsed.balanceAfter,
                             note = parsed.title,
+                            categoryId = null, // Saved uncategorized so user can categorize later
                             smsHash = fullBody.hashCode().toString(),
-                            occurredAt = timestamp,
+                            occurredAt = parsed.timestamp,
                             synced = false
                         )
                         app.database.transactionDao().insertOrUpdate(transaction)

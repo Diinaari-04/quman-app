@@ -77,6 +77,9 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("UPDATE transactions SET direction = :direction WHERE id = :id")
+    suspend fun updateDirection(id: String, direction: String)
 }
 
 @Dao
