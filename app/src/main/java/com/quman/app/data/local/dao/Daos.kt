@@ -63,6 +63,12 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE occurred_at >= :startTime AND occurred_at <= :endTime ORDER BY occurred_at DESC")
     fun getTransactionsBetween(startTime: Long, endTime: Long): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE occurred_at >= :startTime AND occurred_at <= :endTime AND (:searchQuery = '' OR (counterparty_name LIKE '%' || :searchQuery || '%' OR counterparty_phone LIKE '%' || :searchQuery || '%')) ORDER BY occurred_at DESC")
+    fun searchTransactionsBetween(startTime: Long, endTime: Long, searchQuery: String): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE :searchQuery = '' OR (counterparty_name LIKE '%' || :searchQuery || '%' OR counterparty_phone LIKE '%' || :searchQuery || '%') ORDER BY occurred_at DESC")
+    fun searchAllTransactions(searchQuery: String): Flow<List<TransactionEntity>>
+
     @Query("SELECT * FROM transactions WHERE user_id = :userId ORDER BY occurred_at DESC")
     fun getTransactions(userId: String): Flow<List<TransactionEntity>>
 

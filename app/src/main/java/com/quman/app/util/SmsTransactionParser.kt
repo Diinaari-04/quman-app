@@ -33,7 +33,7 @@ data class ParsedSmsNotification(
 object SmsTransactionParser {
 
     private val amountRegex = Regex("""(?:\$|USD\s*)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:\$|USD)""", RegexOption.IGNORE_CASE)
-    private val balanceRegex = Regex("""(?:haraag[a-z]*|balance)\s*(?:cusub)?\s*(?:waa|is)?\s*[:\s]*\$?([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
+    private val balanceRegex = Regex("""(?:haraag[a-z]*|balance)\s*(?:cusub)?\s*(?:waa|is)?\s*[:\s]*(-?\$?-?[0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
     private val phoneRegex = Regex("""\b(252[0-9]{9}|0?[0-9]{9})\b""")
 
     // EVC Plus (192) exact patterns
@@ -70,11 +70,12 @@ object SmsTransactionParser {
             amount = amountStr.toDoubleOrNull()
         }
 
-        // 3. Extract balance after
+        // 3. Extract balance after (directly from SMS provider authoritative haraaga)
         var balanceAfter: Double? = null
         val balanceMatch = balanceRegex.find(body)
         if (balanceMatch != null) {
-            balanceAfter = balanceMatch.groupValues[1].toDoubleOrNull()
+            val raw = balanceMatch.groupValues[1].replace("$", "").trim()
+            balanceAfter = raw.toDoubleOrNull()
         }
 
         // 4. Extract occurrence date

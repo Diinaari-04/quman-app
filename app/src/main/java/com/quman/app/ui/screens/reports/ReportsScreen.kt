@@ -19,17 +19,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -165,12 +171,28 @@ fun ReportsScreen(
     val transactions by (app?.database?.transactionDao()?.getTransactionsBetween(startTime, endTime) ?: flowOf(emptyList()))
         .collectAsStateWithLifecycle(emptyList())
 
-    // Recalculate summary totals for selected range only
-    val totalIn = remember(transactions) {
-        transactions.filter { it.direction == "in" }.sumOf { it.amount }
+    // Feature 1: Search transactions by counterparty name or phone number
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    // Case-insensitive, partial match on counterparty_name or counterparty_phone within selected date range
+    val filteredTransactions = remember(transactions, searchQuery) {
+        if (searchQuery.isBlank()) {
+            transactions
+        } else {
+            val q = searchQuery.trim().lowercase()
+            transactions.filter { tx ->
+                (tx.counterpartyName?.lowercase()?.contains(q) == true) ||
+                (tx.counterpartyPhone?.lowercase()?.contains(q) == true)
+            }
+        }
     }
-    val totalOut = remember(transactions) {
-        transactions.filter { it.direction == "out" }.sumOf { it.amount }
+
+    // Recalculate summary totals for selected range and search query
+    val totalIn = remember(filteredTransactions) {
+        filteredTransactions.filter { it.direction == "in" }.sumOf { it.amount }
+    }
+    val totalOut = remember(filteredTransactions) {
+        filteredTransactions.filter { it.direction == "out" }.sumOf { it.amount }
     }
     val netBalance = remember(totalIn, totalOut) {
         totalIn - totalOut
@@ -231,6 +253,69 @@ fun ReportsScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // --- SEARCH BAR (Feature 1) ---
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(3.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Raadi",
+                        tint = QumanDeepBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("reports_search_input"),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = TextPrimary,
+                            fontSize = 14.sp
+                        ),
+                        decorationBox = { innerTextField ->
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Raadi magac ama lambar...",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = TextMuted,
+                                        fontSize = 14.sp
+                                    )
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { searchQuery = "" },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tirtir",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
             // --- FILTER CONTROL CHIPS (Bug 1 Fix) ---
             Row(
                 modifier = Modifier
@@ -406,7 +491,7 @@ fun ReportsScreen(
                             color = TextSecondary
                         )
                         Text(
-                            text = "${transactions.size} dhaqdhaqaaq",
+                            text = "${filteredTransactions.size} dhaqdhaqaaq",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )
@@ -478,8 +563,8 @@ fun ReportsScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // --- FILTERED TRANSACTIONS LIST ---
-            if (transactions.isEmpty()) {
-                // Placeholder Card when no transactions in this range
+            if (filteredTransactions.isEmpty()) {
+                // Placeholder Card when no transactions in this range or search
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -502,7 +587,7 @@ fun ReportsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.PieChart,
+                                imageVector = if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.PieChart,
                                 contentDescription = null,
                                 tint = QumanViolet,
                                 modifier = Modifier.size(32.dp)
@@ -512,7 +597,7 @@ fun ReportsScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Text(
-                            text = "Ma jiro dhaqdhaqaaq taariikhdan",
+                            text = if (searchQuery.isNotBlank()) "Lama helin natiijo" else "Ma jiro dhaqdhaqaaq taariikhdan",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
@@ -521,7 +606,10 @@ fun ReportsScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "Muddadan la doortay wax dhaqdhaqaaq ah lagama helin xogta SMS-ka.",
+                            text = if (searchQuery.isNotBlank())
+                                "Wax dhaqdhaqaaq ah kuma haboona raadintaada: \"$searchQuery\"."
+                            else
+                                "Muddadan la doortay wax dhaqdhaqaaq ah lagama helin xogta SMS-ka.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
                             textAlign = TextAlign.Center
@@ -538,7 +626,7 @@ fun ReportsScreen(
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        transactions.forEachIndexed { idx, tx ->
+                        filteredTransactions.forEachIndexed { idx, tx ->
                             val isOut = tx.direction == "out"
                             val accentColor = if (isOut) MoneyOutRed else MoneyInGreen
                             val containerColor = if (isOut) MoneyOutRedContainer else MoneyInGreenContainer

@@ -25,20 +25,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -118,15 +123,29 @@ fun HomeScreen(
                 ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
 
-    // Dynamic Balance Calculations
+    // Dynamic Stats Calculations (Money IN and Money OUT)
     val totalIn = remember(transactions) {
         transactions.filter { it.direction == "in" }.sumOf { it.amount }
     }
     val totalOut = remember(transactions) {
         transactions.filter { it.direction == "out" }.sumOf { it.amount }
     }
-    val netBalance = remember(totalIn, totalOut) {
-        totalIn - totalOut
+
+    // Feature 2 & Feature 3: Authoritative Provider Running Balance (balance_after)
+    // 1. Group by provider to get the most recent balance_after for each active provider/SIM
+    val providerBalances = remember(transactions) {
+        transactions
+            .filter { it.balanceAfter != null }
+            .groupBy { it.provider }
+            .mapValues { (_, txList) -> txList.first().balanceAfter!! }
+    }
+
+    // 2. Check if a balance has ever been recorded from real SMS
+    val hasKnownBalance = providerBalances.isNotEmpty()
+
+    // 3. Combined total of each SIM's latest authoritative balance_after (or single SIM's balance)
+    val haraagaGuud = remember(providerBalances) {
+        if (providerBalances.isNotEmpty()) providerBalances.values.sum() else 0.0
     }
 
     val displayName = if (!userName.isNullOrBlank()) userName else "Saaxiib"
@@ -188,7 +207,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Balance Card inside Header (Reactively calculates real net balance)
+                // Balance Card inside Header (Shows authoritative provider balance_after)
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -207,13 +226,56 @@ fun HomeScreen(
                             color = TextSecondary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "$${String.format(Locale.US, "%.2f", netBalance)}",
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                color = QumanDeepBlue,
-                                fontWeight = FontWeight.ExtraBold
+                        if (hasKnownBalance) {
+                            Text(
+                                text = CurrencyUtils.formatBalance(haraagaGuud),
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    color = if (haraagaGuud >= 0) QumanDeepBlue else MoneyOutRed,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             )
-                        )
+                            if (providerBalances.size > 1) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    providerBalances.forEach { (prov, bal) ->
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFF1F5F9))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                text = "$prov: ${CurrencyUtils.formatBalance(bal)}",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = TextPrimary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // Feature 3: First login/signup with zero transaction SMS yet
+                            Text(
+                                text = "Lama ogeyn wali",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    color = QumanDeepBlue,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Haraagan wuxuu soo muuqan doonaa marka fariinta xigta ee lacagta timaado.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = TextMuted,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -428,6 +490,20 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Feature 1: Search transactions on HomeScreen
+            var homeSearchQuery by rememberSaveable { mutableStateOf("") }
+            val filteredHomeTransactions = remember(transactions, homeSearchQuery) {
+                if (homeSearchQuery.isBlank()) {
+                    transactions
+                } else {
+                    val q = homeSearchQuery.trim().lowercase()
+                    transactions.filter { tx ->
+                        (tx.counterpartyName?.lowercase()?.contains(q) == true) ||
+                        (tx.counterpartyPhone?.lowercase()?.contains(q) == true)
+                    }
+                }
+            }
+
             // Recent Transactions Section Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -442,14 +518,78 @@ fun HomeScreen(
                 )
                 if (transactions.isNotEmpty()) {
                     Text(
-                        text = "${transactions.size} dhaqdhaqaaq",
+                        text = if (homeSearchQuery.isNotBlank()) "${filteredHomeTransactions.size} natiijo" else "${transactions.size} dhaqdhaqaaq",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Search Bar for HomeScreen
+            if (transactions.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(14.dp)),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Raadi",
+                            tint = QumanDeepBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        BasicTextField(
+                            value = homeSearchQuery,
+                            onValueChange = { homeSearchQuery = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("home_search_input"),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = TextPrimary,
+                                fontSize = 13.sp
+                            ),
+                            decorationBox = { innerTextField ->
+                                if (homeSearchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Raadi magac ama lambar...",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = TextMuted,
+                                            fontSize = 13.sp
+                                        )
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+                        if (homeSearchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { homeSearchQuery = "" },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tirtir",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             // Transactions List or Empty Placeholder
             if (transactions.isEmpty()) {
@@ -501,6 +641,56 @@ fun HomeScreen(
                         )
                     }
                 }
+            } else if (filteredHomeTransactions.isEmpty()) {
+                // Search yielded no results
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(20.dp))
+                        .testTag("home_no_search_results"),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEDE9FE)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SearchOff,
+                                contentDescription = null,
+                                tint = QumanDeepBlue,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Lama helin natiijo",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "Wax dhaqdhaqaaq ah kuma haboona raadintaada: \"$homeSearchQuery\".",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
             } else {
                 Card(
                     modifier = Modifier
@@ -513,9 +703,9 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        transactions.take(15).forEachIndexed { index, tx ->
+                        filteredHomeTransactions.take(15).forEachIndexed { index, tx ->
                             TransactionRowItem(tx = tx)
-                            if (index < transactions.take(15).size - 1) {
+                            if (index < filteredHomeTransactions.take(15).size - 1) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                     color = Color(0xFFF1F5F9),
@@ -738,7 +928,7 @@ private fun TransactionRowItem(tx: TransactionEntity) {
             if (tx.balanceAfter != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Haraa: $${String.format(Locale.US, "%.2f", tx.balanceAfter)}",
+                    text = "Haraa: ${CurrencyUtils.formatBalance(tx.balanceAfter)}",
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = TextMuted,
                         fontSize = 10.sp

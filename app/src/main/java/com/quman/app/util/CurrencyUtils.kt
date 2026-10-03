@@ -20,4 +20,15 @@ object CurrencyUtils {
             }
         }
     }
+
+    /**
+     * Formats running balance accurately:
+     * - Positive: $4.21
+     * - Negative: -$1.15
+     */
+    fun formatBalance(balance: Double): String {
+        val absVal = kotlin.math.abs(balance)
+        val formattedNumber = String.format(Locale.US, "%.2f", absVal)
+        return if (balance < 0) "-$$formattedNumber" else "$$formattedNumber"
+    }
 }

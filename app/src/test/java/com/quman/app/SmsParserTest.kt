@@ -85,6 +85,17 @@ class SmsParserTest {
     }
 
     @Test
+    fun testNegativeBalanceParsing() {
+        val negativeSms1 = "[-EVCPLUS-] $0.50 ayaad uwareejisay Axmed (615000000), Tar: 01/10/26 12:00:00, Haraagaagu waa $-1.15"
+        val parsed1 = SmsTransactionParser.parse("192", negativeSms1)
+        assertEquals(-1.15, parsed1.balanceAfter ?: 0.0, 0.001)
+
+        val negativeSms2 = "[-EVCPLUS-] $1.00 ayaad uwareejisay Cali (615111111), Tar: 01/10/26 12:01:00, Haraagaagu waa -$2.50"
+        val parsed2 = SmsTransactionParser.parse("192", negativeSms2)
+        assertEquals(-2.50, parsed2.balanceAfter ?: 0.0, 0.001)
+    }
+
+    @Test
     fun testPureAdSmsWithoutTransfer() {
         val adSms = "La soo deg App-ka WAAFI si aad u hesho adeegyo casri ah iyo qiimo dhimis."
         val parsed = SmsTransactionParser.parse("192", adSms)
